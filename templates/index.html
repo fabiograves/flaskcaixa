@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Lista de Contas{% endblock %}
+
+{% block content %}
+<h1>Lista de Contas</h1>
+{% if contas %}
+    <table border="1">
+        <tr>
+            <th>Nome</th>
+            <th>Senha</th>
+            <th>Erro Senha</th>
+            <th>Saldo</th>
+            <th>Saques Diários</th>
+        </tr>
+        {% for conta in contas %}
+            <tr>
+                <td>{{ conta['nome'] }}</td>
+                <td>{{ conta['senha'] }}</td>
+                <td>{{ conta['erro_senha'] }}</td>
+                <td>{{ conta['saldo'] }}</td>
+                <td>{{ conta['saques_diarios'] }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+{% else %}
+    <p>Nenhuma conta encontrada.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% block title %}Minha Aplicação{% endblock %}</title>
+</head>
+<body>
+    <header>
+        <h1>Minha Aplicação</h1>
+    </header>
+
+    <!-- Exibir mensagens flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <ul>
+                {% for category, message in messages %}
+                    <li class="flash-{{ category }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Conteúdo principal -->
+    {% block content %}{% endblock %}
+</body>
+</html>
