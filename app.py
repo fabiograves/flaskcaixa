@@ -45,7 +45,20 @@ def criar_conta():
     if request.method == "POST":
         nome = request.form["nome"]
         senha = request.form["senha"]
-        saldo_inicial = float(request.form["saldo_inicial"])
+        confirmar_senha = request.form["confirmar_senha"]
+        saldo_inicial = float(request.form.get("saldo_inicial", 0) or 0)
+
+        if not nome.strip():
+            flash("O nome não pode estar vazio ou ser apenas espaços.", "danger")
+            return redirect(url_for("criar_conta"))
+
+        if senha != confirmar_senha:
+            flash("Senha e Confirmar senha não são iguais.", "danger")
+            return redirect(url_for("criar_conta"))
+
+        if saldo_inicial < 0:
+            flash("O saldo inicial não pode ser negativo.", "danger")
+            return redirect(url_for("criar_conta"))
 
         try:
             conn = get_db_connection()
@@ -61,6 +74,9 @@ def criar_conta():
             return redirect(url_for("index"))
         except sqlite3.IntegrityError:
             flash("Erro: Conta já existe.", "danger")
+            return redirect(url_for("criar_conta"))
+        except Exception as e:
+            flash(f"Ocorreu um erro inesperado: {str(e)}", "danger")
             return redirect(url_for("criar_conta"))
 
     return render_template("criar_conta.html")
