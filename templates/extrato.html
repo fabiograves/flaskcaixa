@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extrato</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3>Extrato Bancário</h3>
+            </div>
+            <div class="card-body">
+                <!-- Exibição do Saldo Atual -->
+                <div class="mb-4">
+                    <h5>Saldo Atual:</h5>
+                    <p class="fs-4 text-success"><strong>R$ {{ saldo }}</strong></p> <!-- Substituir pelo saldo real via backend -->
+                </div>
+
+                <!-- Tabela de Transações -->
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th scope="col">Data</th>
+                                <th scope="col">Descrição</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transacao in extrato %}
+                            <tr>
+                                <td>{{ transacao.data_hora }}</td>
+                                <td>{{ transacao.descricao }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer">
+                <!-- Botão para voltar ao home -->
+                <a href="/home" class="btn btn-secondary">Voltar para o Home</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS (Opcional) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+{% endblock %}
