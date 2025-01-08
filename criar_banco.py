@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS contas (
     erro_senha INTEGER DEFAULT 0,
     saldo REAL NOT NULL,
     saques_diarios REAL DEFAULT 0,
-    cpf VARCHAR[14] NOT NULL UNIQUE
+    cpf VARCHAR[14] NOT NULL
 )
 """)
 

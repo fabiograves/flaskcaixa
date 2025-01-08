@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 import sqlite3
 from datetime import datetime
 from flask import session
@@ -6,7 +6,7 @@ from functools import wraps
 app = Flask(__name__)
 app.secret_key = 'teste'
 
-# Função para conectar ao banco de dados
+# Função para conectar ao banco de dados laerte metalbo
 def get_db_connection():
     conn = sqlite3.connect("banco_local.db")
     conn.row_factory = sqlite3.Row  # Permite acessar os resultados como dicionários
@@ -68,7 +68,7 @@ def criar_conta():
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("INSERT INTO contas (nome, senha, saldo) VALUES (?, ?, ?)", (nome, senha, saldo_inicial))
+            cursor.execute("INSERT INTO contas (nome, senha, cpf, saldo) VALUES (?, ?, ?, ?)", (nome, senha, cpf, saldo_inicial))
             cursor.execute(
                 "INSERT INTO historico (nome, descricao, data_hora) VALUES (?, ?, ?)",
                 (nome, f"Depósito inicial: R$ {saldo_inicial}", datetime.now().isoformat())
@@ -77,7 +77,7 @@ def criar_conta():
             conn.commit()
             conn.close()
             flash("Conta criada com sucesso!", "success")
-            return redirect(url_for("index"))
+            return redirect(url_for("login"))
         except sqlite3.IntegrityError:
             flash("Erro: Conta já existe.", "danger")
             return redirect(url_for("criar_conta"))
@@ -256,7 +256,7 @@ def extrato():
     nome = session["nome"]
     cursor.execute("SELECT * FROM historico WHERE nome = ?", (nome,))
     extrato = cursor.fetchall()
-    print(extrato)
+    #print(extrato)
     cursor.execute("SELECT saldo FROM contas WHERE nome = ?", (nome,))
     saldo_atual = cursor.fetchone()[0]
     conn.close()
