@@ -42,37 +42,8 @@ def index():
     # passar ele como parametro a pagina html chamando contas tambem
     return render_template('index.html', contas=contas)"""
 
-import re
 
-def validar_cpf(cpf):
-    # Remove todos os caracteres que não são números
-    cpf = re.sub(r"\D", "", cpf)
-
-    # Verifica se tem 11 dígitos
-    if len(cpf) != 11:
-        return False, None
-
-    # Verifica se todos os dígitos são iguais (ex: 111.111.111-11, inválido)
-    if cpf == cpf[0] * 11:
-        return False, None
-
-    # Cálculo dos dígitos verificadores
-    def calcular_digito(cpf, peso):
-        soma = sum(int(digito) * peso for digito, peso in zip(cpf, range(peso, 1, -1)))
-        resto = soma % 11
-        return "0" if resto < 2 else str(11 - resto)
-
-    # Primeiro dígito verificador
-    primeiro_digito = calcular_digito(cpf[:9], 10)
-    # Segundo dígito verificador
-    segundo_digito = calcular_digito(cpf[:10], 11)
-
-    if cpf[9] == primeiro_digito and cpf[10] == segundo_digito:
-        # Formata o CPF como XXX.XXX.XXX-XX
-        cpf_formatado = f"{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}"
-        return True, cpf_formatado
-
-    return False, None
+#criar conta
 @app.route("/criar_conta", methods=["GET", "POST"])
 def criar_conta():
     if request.method == "POST":
@@ -84,11 +55,6 @@ def criar_conta():
 
         if not nome.strip():
             flash("O nome não pode estar vazio ou ser apenas espaços.", "danger")
-            return redirect(url_for("criar_conta"))
-
-        cpf_valido, cpf_formatado = validar_cpf(cpf)
-        if not cpf_valido:
-            flash("CPF inválido. Por favor, insira um CPF válido.", "danger")
             return redirect(url_for("criar_conta"))
 
         if senha != confirmar_senha:
