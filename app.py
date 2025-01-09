@@ -369,6 +369,7 @@ def desbloquear():
     return render_template("desbloquear.html")
 
 @app.route("/desbloquear_usuario", methods=["POST", "GET"])
+@login_required
 def desbloquear_usuario():
     if request.method == "POST":
         try:
@@ -387,5 +388,30 @@ def desbloquear_usuario():
 
     return redirect(url_for("home_adm"))
 
+@app.route("/mudar_senha", methods=["POST", "GET"])
+def mudar_senha():
+    if request.method == "POST":
+        nome = request.form["nome"]
+        cpf = request.form["cpf"]
+        nova_senha = request.form["senha"]
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT senha FROM contas WHERE nome = ?", (nome,))
+            senha_atual = cursor.fetchone()[0]
+            if senha_atual != nova_senha:
+                cursor.execute("UPDATE contas SET senha = ? WHERE nome = ?", (nova_senha, nome))
+                conn.commit()
+                conn.close()
+                flash("Senha atualizada com sucesso!", "success")
+                return redirect(url_for("login"))
+            else:
+                flash("A nova senha é igual a atual, ela precisa ser diferente!", "warning")
+                return redirect(url_for("mudar_senha"))
+        except Exception as e:
+            flash("Erro ao mudar senha", "danger")
+            return redirect(url_for("mudar_senha"))
+
+    return render_template("mudar_senha.html")
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8088)
