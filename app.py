@@ -42,6 +42,37 @@ def index():
     # passar ele como parametro a pagina html chamando contas tambem
     return render_template('index.html', contas=contas)"""
 
+import re
+
+def validar_cpf(cpf):
+    # Remove todos os caracteres que não são números
+    cpf = re.sub(r"\D", "", cpf)
+
+    # Verifica se tem 11 dígitos
+    if len(cpf) != 11:
+        return False, None
+
+    # Verifica se todos os dígitos são iguais (ex: 111.111.111-11, inválido)
+    if cpf == cpf[0] * 11:
+        return False, None
+
+    # Cálculo dos dígitos verificadores
+    def calcular_digito(cpf, peso):
+        soma = sum(int(digito) * peso for digito, peso in zip(cpf, range(peso, 1, -1)))
+        resto = soma % 11
+        return "0" if resto < 2 else str(11 - resto)
+
+    # Primeiro dígito verificador
+    primeiro_digito = calcular_digito(cpf[:9], 10)
+    # Segundo dígito verificador
+    segundo_digito = calcular_digito(cpf[:10], 11)
+
+    if cpf[9] == primeiro_digito and cpf[10] == segundo_digito:
+        # Formata o CPF como XXX.XXX.XXX-XX
+        cpf_formatado = f"{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}"
+        return True, cpf_formatado
+
+    return False, None
 
 #criar conta
 @app.route("/criar_conta", methods=["GET", "POST"])
@@ -55,6 +86,12 @@ def criar_conta():
 
         if not nome.strip():
             flash("O nome não pode estar vazio ou ser apenas espaços.", "danger")
+            return redirect(url_for("criar_conta"))
+
+        # Validação do CPF
+        cpf_valido, cpf_formatado = validar_cpf(cpf)
+        if not cpf_valido:
+            flash("CPF inválido. Por favor, insira um CPF válido.", "danger")
             return redirect(url_for("criar_conta"))
 
         if senha != confirmar_senha:
@@ -79,7 +116,7 @@ def criar_conta():
             flash("Conta criada com sucesso!", "success")
             return redirect(url_for("login"))
         except sqlite3.IntegrityError:
-            flash("Erro: Conta já existe.", "danger")
+            flash("Erro!", "danger")
             return redirect(url_for("criar_conta"))
         except Exception as e:
             flash(f"Ocorreu um erro inesperado: {str(e)}", "danger")
@@ -96,25 +133,35 @@ def login():
         if not nome.strip():
             flash("O nome não pode estar vazio ou ser apenas espaços.", "danger")
             return redirect(url_for("criar_conta"))
+
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT senha FROM contas WHERE nome = ?", (nome,))
             senha_coletada = cursor.fetchone()[0]
-            if senha_coletada == senha:
+            cursor.execute("SELECT erro_senha FROM contas WHERE nome = ?", (nome,))
+            erro_senha = cursor.fetchone()[0]
+            if senha_coletada == senha and erro_senha < 3:
                 flash("LOGIN REALIZADO COM SUCESSO!", "success")
                 cursor.execute("UPDATE contas SET erro_senha = 0 WHERE nome = ?",
                                (nome,))
                 conn.commit()
                 session["nome"] = nome
+                if nome == 'adm2020':
+                    return redirect(url_for("home_adm"))
                 cursor.execute("SELECT saldo FROM contas WHERE nome = ?", (nome,))
                 saldo_atual = cursor.fetchone()[0]
                 session["saldo"] = saldo_atual
                 conn.close()
                 return redirect(url_for("home"))
             else:
-                flash("A senha está incorreta!", "danger")
-                cursor.execute("UPDATE contas SET erro_senha = erro_senha + 1 WHERE nome = ?", (nome,))
+                flash("Login inválido!", "danger")
+                cursor.execute("UPDATE contas SET erro_senha = (erro_senha + 1) WHERE nome = ?", (nome,))
+                conn.commit()
+                cursor.execute("SELECT erro_senha FROM contas WHERE nome = ?", (nome,))
+                erro_senha = cursor.fetchone()[0]
+                if erro_senha >= 3:
+                    flash(f'Você foi bloqueado', "danger")
                 conn.commit()
                 conn.close()
                 return redirect(url_for("login"))
@@ -127,8 +174,20 @@ def login():
 @app.route("/home")
 @login_required
 def home():
-    return render_template("home.html")
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT saldo FROM contas WHERE nome = ?", (session["nome"],))
+    saldo_atual = cursor.fetchone()[0]
+    return render_template("home.html", saldo=saldo_atual)
 
+@app.route("/home_adm")
+def home_adm():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT nome, cpf FROM bloqueados")
+    bloqueados = cursor.fetchall()
+    conn.close()
+    return render_template("home_adm.html", bloqueados=bloqueados)
 @app.route("/sacar" , methods=["GET", "POST"])
 @login_required
 def sacar():
@@ -221,7 +280,7 @@ def transferir():
     cursor = conn.cursor()
     if request.method == "POST":
         transferencia = float(request.form["valor"])
-        destino = request.form["destinatario"]
+        cpf = request.form["destinatario"]
         origem = session["nome"]
         cursor.execute("SELECT saldo FROM contas WHERE nome = ?", (origem,))
         saldo_atual = cursor.fetchone()[0]
@@ -229,15 +288,24 @@ def transferir():
             novo_saldo = saldo_atual - transferencia
             cursor.execute("UPDATE contas SET saldo = ? WHERE nome = ?", (novo_saldo, origem))
             conn.commit()
-            cursor.execute("SELECT saldo FROM contas WHERE nome = ?", (destino,))
+            cursor.execute("SELECT saldo FROM contas WHERE cpf = ?", (cpf,))
             saldo_destinatario = cursor.fetchone()[0]
             novo_saldo_destinatario = saldo_destinatario + transferencia
-            cursor.execute("UPDATE contas SET saldo = ? WHERE nome = ?", (novo_saldo_destinatario, destino))
+            cursor.execute("UPDATE contas SET saldo = ? WHERE cpf = ?", (novo_saldo_destinatario, cpf))
             conn.commit()
-            flash(f'Você transferiu R${transferencia} para {destino}', "success")
+            cursor.execute("SELECT nome FROM contas WHERE cpf = ?", (cpf,))
+            nome_destinatario = cursor.fetchone()[0]
+            flash(f'Você transferiu R${transferencia} para {nome_destinatario}', "success")
             cursor.execute("INSERT INTO historico (nome, descricao, data_hora) VALUES (?, ?, ?)",
-                           (origem, f"Transferido para {destino}: R$ {transferencia}", datetime.now().isoformat()))
+                           (origem, f"Transferido para {nome_destinatario}: R$ {transferencia}", datetime.now().isoformat()))
             conn.commit()
+            cursor.execute("INSERT INTO historico (nome, descricao, data_hora) VALUES (?, ?, ?)",
+                           (nome_destinatario, f"Recebeu de {origem}: R$ {transferencia}",
+                            datetime.now().isoformat()))
+            conn.commit()
+            cursor.execute("SELECT saldo FROM contas WHERE nome = ?", (origem,))
+            saldo_atual = cursor.fetchone()[0]
+            conn.close()
             return redirect(url_for("home", saldo=saldo_atual))
         else:
             flash("O saldo atual não é o suficiente", "danger")
@@ -262,6 +330,62 @@ def extrato():
     conn.close()
     return render_template("extrato.html", saldo=saldo_atual, extrato=extrato)
 
+@app.route("/logout")
+def logout():
+    session.pop("nome", None) # Remove o usuário da sessão
+    flash("Você saiu do sistema.", "info")
+    return redirect(url_for("login"))
+
+@app.route("/desbloquear", methods=["GET", "POST"])
+def desbloquear():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if request.method == "POST":
+        nome = request.form["nome"]
+        cpf = request.form["cpf"]
+        #pesquisei esse, não sabia como verificar a existência das duas variáveis
+        cursor.execute(
+            "SELECT 1 FROM contas WHERE nome = ? AND cpf = ?",
+            (nome, cpf)
+        )
+        result = cursor.fetchone()
+        if result is None:
+            flash("Nome ou CPF não encontrado no sistema.", "danger")
+            return redirect(url_for("desbloquear"))
+        cursor.execute("SELECT erro_senha FROM contas WHERE nome = ?", (nome,))
+        erro_senha = cursor.fetchone()[0]
+        if erro_senha >=3:
+            cursor.execute(
+                "INSERT INTO bloqueados (nome, cpf) VALUES (?, ?)",
+                (nome, cpf)
+            )
+            conn.commit()
+            flash("Solicitação de desbloqueio enviada com sucesso.", "success")
+            return redirect(url_for("login"))
+        else:
+            flash("Conta não está bloqueada", "warning")
+            return redirect(url_for("login"))
+    conn.close()
+    return render_template("desbloquear.html")
+
+@app.route("/desbloquear_usuario", methods=["POST", "GET"])
+def desbloquear_usuario():
+    if request.method == "POST":
+        try:
+            cpf_bloqueado = request.form["cpf"]
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("UPDATE contas SET erro_senha = 0 WHERE cpf = ?", (cpf_bloqueado,))
+            cursor.execute("DELETE FROM bloqueados WHERE cpf = ?", (cpf_bloqueado,))
+            flash(f"Usuário com CPF {cpf_bloqueado} foi desbloqueado com sucesso!", "success")
+            conn.commit()
+            conn.close()
+            return redirect(url_for("home_adm"))
+        except Exception as e:
+            flash(f"Erro ao desbloquear usuário", "danger")
+            return redirect(url_for("home_adm"))
+
+    return redirect(url_for("home_adm"))
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8088)

@@ -27,6 +27,14 @@ CREATE TABLE IF NOT EXISTS historico (
 )
 """)
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS bloqueados (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    cpf VARCHAR[14] NOT NULL
+)
+""")
+
 # Confirma as alterações e fecha a conexão
 conn.commit()
 conn.close()
